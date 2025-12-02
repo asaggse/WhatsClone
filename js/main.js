@@ -3,21 +3,15 @@
 const input = document.querySelector('input')
 const button = document.querySelector('button')
 const chatBox = document.querySelector('.chat-box')
+const contactStatus = document.querySelector('.contact-status')
 
 // preparazione dei messaggi iniziali
-const messages = [
-  {
-    type: 'sent',
-    text: 'Ciao, come va?',
-    time: '24/11/2025 20:27:00'
-  },
-  {
-    type: 'received',
-    text: 'Tutto bene, grazie. E tu?',
-    time: '24/11/2025 20:37:00'
-  },
+const messages = []
 
-]
+// preparo l'indirizzo da chiamare per le API
+const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='
+
+const systemPrompt = "Sei Silvia, un'amica che risponde in modo amichevole e informale. Rispondi in italiano, con un tono cordiale e naturale, come farebbe un'amica in una chat. Mantieni le risposte brevi e spontanee."
 
 // # OPERAZIONI DI AVVIO PAGINA
 
@@ -53,6 +47,12 @@ function showMessages() {
         </div>
     </div>`
   }
+
+  // Riporto il "focus" sulla casella
+  input.focus()
+
+  // Scorro in automatico alla fine del box
+  chatBox.scrollTop = chatBox.scrollHeight
 }
 
 // Funzione per aggiungere un messaggio
@@ -86,9 +86,65 @@ function sendMessage() {
   // Svuoto la casella di testo 
   input.value = ''
 
-  // Riporto il "focus" sulla casella
-  input.focus()
 
-  // Scorro in automatico alla fine del box
-  chatBox.scrollTop = chatBox.scrollHeight
+
+  // Chiedo a Gemini di generare una risposta
+  getAnswerFromGemini()
+}
+
+
+// # IMPLEMENTAZIONE AI
+
+// Funzione per formattare la chat in un formato gradito a Gemini
+function formatChatForGemini() {
+  // Preparo un array per la "nuova chat"
+  const formattedChat = []
+
+  // Per ciascun messaggio...
+  for (const message of messages) {
+    // Creo e aggiungo un nuovo oggetto alla mia chat formattata
+    formattedChat.push({
+      parts: [{ text: message.text }],
+      role: message.type === 'sent' ? 'user' : 'model'
+    })
+  }
+
+  // Aggiungo il system prompt all'inizio dell'array
+  formattedChat.unshift({
+    role: 'user',
+    parts: [{ text: systemPrompt }]
+  })
+
+  return formattedChat
+}
+
+
+// Funzione per chiedere a Gemini di generare una risposta
+async function getAnswerFromGemini() {
+  // PRepariamo la chat da inviare
+  const chatForGemini = formatChatForGemini()
+
+  // Inseriamo "Sta scrivendo..." nello stato in cima
+  contactStatus.innerText = 'Sta scrivendo...'
+
+  // Effettuiamo la chiamata alle API di Gemini
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: chatForGemini })
+  })
+
+  // riconverto la risposta dal JSON
+  const data = await response.json();
+
+  // Recupero il testo effettivo della risposta
+  const answer = data.candidates[0].content.parts[0].text
+
+  // Rimetto "Online" sullo status in cima
+  contactStatus.innerText = 'Online 🟢'
+
+  // Aggiungo il messaggio in pagina
+  addMessage('received', answer)
+
+
 }
